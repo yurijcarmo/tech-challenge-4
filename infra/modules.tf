@@ -60,7 +60,7 @@ module "databases" {
   project = var.project
   tags    = local.tags
 
-  subnet_ids = [module.network.eks_subnet_private_1a_id, module.network.eks_subnet_private_1b_id]
+  subnet_ids     = [module.network.eks_subnet_private_1a_id, module.network.eks_subnet_private_1b_id]
   vpc_id         = module.network.vpc_id
   vpc_cidr_block = var.cidr_block
   dbs_config = [
@@ -101,9 +101,9 @@ module "elasticache" {
   project = var.project
   tags    = local.tags
 
-  subnet_ids = [module.network.eks_subnet_private_1a_id, module.network.eks_subnet_private_1b_id]
-  vpc_id          = module.network.vpc_id
-  vpc_cidr_block  = var.cidr_block
+  subnet_ids     = [module.network.eks_subnet_private_1a_id, module.network.eks_subnet_private_1b_id]
+  vpc_id         = module.network.vpc_id
+  vpc_cidr_block = var.cidr_block
   cache_config = [
     {
       name                 = "redis-cache"
@@ -171,6 +171,7 @@ module "apps" {
   source = "./modules/apps"
 
   argocd_repo_url  = var.argocd_repo_url
+  target_revision  = var.argocd_target_revision
   apps_domain      = var.apps_domain
   eks_cluster_name = module.eks_cluster.eks_cluster_name
   depends_on       = [module.addons-eks]

@@ -51,6 +51,12 @@ variable "argocd_repo_url" {
   type        = string
 }
 
+variable "argocd_target_revision" {
+  description = "Branch, tag ou commit sincronizado pelo Argo CD"
+  type        = string
+  default     = "HEAD"
+}
+
 variable "db_password" {
   description = "Senha dos bancos de dados RDS (nao commitar — definir no terraform.tfvars)"
   type        = string

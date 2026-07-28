@@ -1,4 +1,4 @@
-.PHONY: setup-dev validate-base
+.PHONY: setup-dev validate-base validate-observability validate
 
 setup-dev:
 	python3 -m venv .venv
@@ -6,3 +6,8 @@ setup-dev:
 
 validate-base:
 	bash scripts/validate-base.sh
+
+validate-observability:
+	bash scripts/validate-observability.sh
+
+validate: validate-base validate-observability

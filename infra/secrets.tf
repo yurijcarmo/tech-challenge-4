@@ -94,3 +94,23 @@ resource "aws_secretsmanager_secret_version" "analytics_service" {
     AWS_DEFAULT_REGION = "us-east-1"
   })
 }
+
+# observability stack
+resource "random_password" "grafana_admin_password" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "observability" {
+  name                    = "eks/observability"
+  recovery_window_in_days = 0
+  tags                    = local.tags
+}
+
+resource "aws_secretsmanager_secret_version" "observability" {
+  secret_id = aws_secretsmanager_secret.observability.id
+  secret_string = jsonencode({
+    "admin-user"     = "admin"
+    "admin-password" = random_password.grafana_admin_password.result
+  })
+}
