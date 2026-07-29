@@ -5,6 +5,9 @@ metadata:
   namespace: evaluation-service
 data:
   PORT: "8004"
+  OTEL_SERVICE_NAME: "evaluation-service"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector.monitoring.svc.cluster.local:4317"
+  OTEL_EXPORTER_OTLP_INSECURE: "true"
   REDIS_URL: "redis://redis-cache-cluster.ln0uci.0001.use1.cache.amazonaws.com:6379"
   FLAG_SERVICE_URL: "http://flag-service.flag-service.svc.cluster.local:8002"
   TARGETING_SERVICE_URL: "http://targeting-service.targeting-service.svc.cluster.local:8003"

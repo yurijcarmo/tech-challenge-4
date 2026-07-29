@@ -16,6 +16,7 @@ spec:
     helm:
       releaseName: otel-collector
       valuesObject:
+        fullnameOverride: otel-collector
         mode: daemonset
 
         image:
