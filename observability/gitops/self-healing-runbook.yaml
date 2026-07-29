@@ -1,0 +1,428 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: self-healing-runbook-script
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "15"
+  labels:
+    app.kubernetes.io/name: self-healing-runbook
+    app.kubernetes.io/part-of: togglemaster
+data:
+  runbook.py: |-
+    #!/usr/bin/env python3
+    import json
+    import os
+    import ssl
+    from datetime import datetime, timezone
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from urllib.error import HTTPError, URLError
+    from urllib.parse import quote
+    from urllib.request import Request, urlopen
+
+    LISTEN_PORT = int(os.getenv("LISTEN_PORT", "8080"))
+    TARGET_SERVICE = os.getenv("TARGET_SERVICE", "auth-service")
+    TARGET_NAMESPACE = os.getenv("TARGET_NAMESPACE", "auth-service")
+    TARGET_DEPLOYMENT = os.getenv("TARGET_DEPLOYMENT", "auth-service")
+    COOLDOWN_SECONDS = int(os.getenv("COOLDOWN_SECONDS", "300"))
+    REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "10"))
+    MAX_BODY_BYTES = 1024 * 1024
+    RESTART_ANNOTATION = "kubectl.kubernetes.io/restartedAt"
+
+    SERVICE_ACCOUNT_DIR = "/var/run/secrets/kubernetes.io/serviceaccount"
+    TOKEN_FILE = f"{SERVICE_ACCOUNT_DIR}/token"
+    CA_FILE = f"{SERVICE_ACCOUNT_DIR}/ca.crt"
+    KUBE_HOST = os.environ["KUBERNETES_SERVICE_HOST"]
+    KUBE_PORT = os.getenv("KUBERNETES_SERVICE_PORT_HTTPS", "443")
+    KUBE_API = f"https://{KUBE_HOST}:{KUBE_PORT}"
+
+
+    def utc_now():
+        return datetime.now(timezone.utc)
+
+
+    def rfc3339(value):
+        return value.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+    def log_event(event, **fields):
+        record = {
+            "timestamp": rfc3339(utc_now()),
+            "component": "self-healing-runbook",
+            "event": event,
+            **fields,
+        }
+        print(json.dumps(record, separators=(",", ":"), ensure_ascii=False), flush=True)
+
+
+    def read_token():
+        with open(TOKEN_FILE, "r", encoding="utf-8") as token_file:
+            return token_file.read().strip()
+
+
+    def kube_request(method, path, payload=None):
+        body = None if payload is None else json.dumps(payload).encode("utf-8")
+        headers = {
+            "Authorization": f"Bearer {read_token()}",
+            "Accept": "application/json",
+        }
+        if body is not None:
+            headers["Content-Type"] = "application/merge-patch+json"
+
+        request = Request(
+            f"{KUBE_API}{path}",
+            data=body,
+            headers=headers,
+            method=method,
+        )
+        tls_context = ssl.create_default_context(cafile=CA_FILE)
+        with urlopen(
+            request,
+            context=tls_context,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        ) as response:
+            response_body = response.read()
+            return json.loads(response_body) if response_body else {}
+
+
+    def deployment_path():
+        namespace = quote(TARGET_NAMESPACE, safe="")
+        deployment = quote(TARGET_DEPLOYMENT, safe="")
+        return f"/apis/apps/v1/namespaces/{namespace}/deployments/{deployment}"
+
+
+    def parse_timestamp(value):
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+    def restart_deployment():
+        deployment = kube_request("GET", deployment_path())
+        annotations = (
+            deployment.get("spec", {})
+            .get("template", {})
+            .get("metadata", {})
+            .get("annotations", {})
+        )
+
+        previous_restart = annotations.get(RESTART_ANNOTATION)
+        now = utc_now()
+        if previous_restart:
+            try:
+                elapsed = (now - parse_timestamp(previous_restart)).total_seconds()
+                if elapsed < COOLDOWN_SECONDS:
+                    remaining = max(0, int(COOLDOWN_SECONDS - elapsed))
+                    log_event(
+                        "restart_skipped_cooldown",
+                        namespace=TARGET_NAMESPACE,
+                        deployment=TARGET_DEPLOYMENT,
+                        remaining_seconds=remaining,
+                    )
+                    return {
+                        "action": "skipped",
+                        "reason": "cooldown",
+                        "remaining_seconds": remaining,
+                    }
+            except ValueError:
+                log_event(
+                    "invalid_previous_restart_timestamp",
+                    value=previous_restart,
+                )
+
+        restarted_at = rfc3339(now)
+        patch = {
+            "spec": {
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            RESTART_ANNOTATION: restarted_at,
+                        }
+                    }
+                }
+            }
+        }
+        kube_request("PATCH", deployment_path(), patch)
+        log_event(
+            "deployment_restart_requested",
+            namespace=TARGET_NAMESPACE,
+            deployment=TARGET_DEPLOYMENT,
+            restarted_at=restarted_at,
+        )
+        return {
+            "action": "rollout_restart",
+            "namespace": TARGET_NAMESPACE,
+            "deployment": TARGET_DEPLOYMENT,
+            "restarted_at": restarted_at,
+        }
+
+
+    def eligible_alerts(payload):
+        if payload.get("status") != "firing":
+            return []
+
+        selected = []
+        for alert in payload.get("alerts", []):
+            labels = alert.get("labels", {})
+            if alert.get("status", "firing") != "firing":
+                continue
+            if labels.get("self_healing") != "true":
+                continue
+            if labels.get("service") != TARGET_SERVICE:
+                continue
+            selected.append(alert)
+        return selected
+
+
+    class RunbookHandler(BaseHTTPRequestHandler):
+        server_version = "ToggleMasterSelfHealing/1.0"
+
+        def send_json(self, status_code, payload):
+            encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
+        def do_GET(self):
+            if self.path in ("/health", "/ready"):
+                self.send_json(200, {"status": "ok"})
+                return
+            self.send_json(404, {"error": "not_found"})
+
+        def do_POST(self):
+            if self.path != "/alerts":
+                self.send_json(404, {"error": "not_found"})
+                return
+
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+            except ValueError:
+                self.send_json(400, {"error": "invalid_content_length"})
+                return
+
+            if content_length <= 0 or content_length > MAX_BODY_BYTES:
+                self.send_json(413, {"error": "invalid_body_size"})
+                return
+
+            try:
+                payload = json.loads(self.rfile.read(content_length))
+            except json.JSONDecodeError:
+                self.send_json(400, {"error": "invalid_json"})
+                return
+
+            alerts = eligible_alerts(payload)
+            if not alerts:
+                log_event(
+                    "webhook_ignored",
+                    status=payload.get("status"),
+                    alert_count=len(payload.get("alerts", [])),
+                )
+                self.send_json(
+                    202,
+                    {"action": "ignored", "reason": "no_eligible_firing_alert"},
+                )
+                return
+
+            try:
+                result = restart_deployment()
+                result["matching_alerts"] = len(alerts)
+                self.send_json(200, result)
+            except HTTPError as error:
+                error_body = error.read().decode("utf-8", errors="replace")
+                log_event(
+                    "kubernetes_api_error",
+                    status=error.code,
+                    response=error_body[:500],
+                )
+                self.send_json(502, {"error": "kubernetes_api_error"})
+            except (URLError, TimeoutError, OSError) as error:
+                log_event("kubernetes_connection_error", detail=str(error))
+                self.send_json(503, {"error": "kubernetes_connection_error"})
+            except Exception as error:
+                log_event("unexpected_error", detail=repr(error))
+                self.send_json(500, {"error": "unexpected_error"})
+
+        def log_message(self, format_string, *args):
+            log_event(
+                "http_access",
+                client=self.client_address[0],
+                message=format_string % args,
+            )
+
+
+    if __name__ == "__main__":
+        log_event(
+            "runbook_started",
+            listen_port=LISTEN_PORT,
+            target_service=TARGET_SERVICE,
+            target_namespace=TARGET_NAMESPACE,
+            target_deployment=TARGET_DEPLOYMENT,
+            cooldown_seconds=COOLDOWN_SECONDS,
+        )
+        ThreadingHTTPServer(("0.0.0.0", LISTEN_PORT), RunbookHandler).serve_forever()
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: self-healing-runbook
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "15"
+  labels:
+    app.kubernetes.io/name: self-healing-runbook
+    app.kubernetes.io/part-of: togglemaster
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: self-healing-auth-service-restarter
+  namespace: auth-service
+  annotations:
+    argocd.argoproj.io/sync-wave: "15"
+  labels:
+    app.kubernetes.io/name: self-healing-runbook
+    app.kubernetes.io/part-of: togglemaster
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    resourceNames:
+      - auth-service
+    verbs:
+      - get
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: self-healing-auth-service-restarter
+  namespace: auth-service
+  annotations:
+    argocd.argoproj.io/sync-wave: "15"
+  labels:
+    app.kubernetes.io/name: self-healing-runbook
+    app.kubernetes.io/part-of: togglemaster
+subjects:
+  - kind: ServiceAccount
+    name: self-healing-runbook
+    namespace: monitoring
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: self-healing-auth-service-restarter
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: self-healing-runbook
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "15"
+  labels:
+    app.kubernetes.io/name: self-healing-runbook
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: self-healing-runbook
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: self-healing-runbook
+        app.kubernetes.io/part-of: togglemaster
+    spec:
+      serviceAccountName: self-healing-runbook
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: runbook
+          image: python:3.11-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /app/runbook.py
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: LISTEN_PORT
+              value: "8080"
+            - name: TARGET_SERVICE
+              value: auth-service
+            - name: TARGET_NAMESPACE
+              value: auth-service
+            - name: TARGET_DEPLOYMENT
+              value: auth-service
+            - name: COOLDOWN_SECONDS
+              value: "300"
+            - name: REQUEST_TIMEOUT_SECONDS
+              value: "10"
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: runbook-script
+              mountPath: /app/runbook.py
+              subPath: runbook.py
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 2
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: runbook-script
+          configMap:
+            name: self-healing-runbook-script
+            defaultMode: 0444
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: self-healing-runbook
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "15"
+  labels:
+    app.kubernetes.io/name: self-healing-runbook
+    app.kubernetes.io/part-of: togglemaster
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: self-healing-runbook
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

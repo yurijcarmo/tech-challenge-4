@@ -54,3 +54,8 @@ spec:
             **Resumo:** {{ .CommonAnnotations.summary }}
             **Impacto:** {{ .CommonAnnotations.impact }}
             **Ação recomendada:** {{ .CommonAnnotations.action }}
+      webhookConfigs:
+        - sendResolved: true
+          url: http://self-healing-runbook.monitoring.svc.cluster.local:8080/alerts
+          maxAlerts: 10
+          timeout: 10s

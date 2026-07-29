@@ -31,12 +31,26 @@ resource "kubernetes_manifest" "apps" {
         server    = "https://kubernetes.default.svc"
         namespace = each.value.namespace
       }
+      ignoreDifferences = [
+        {
+          group     = "apps"
+          kind      = "Deployment"
+          name      = each.value.name
+          namespace = each.value.namespace
+          jsonPointers = [
+            "/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt"
+          ]
+        }
+      ]
       syncPolicy = {
         automated = {
           prune    = true
           selfHeal = true
         }
-        syncOptions = ["CreateNamespace=true"]
+        syncOptions = [
+          "CreateNamespace=true",
+          "RespectIgnoreDifferences=true"
+        ]
       }
     }
   }
