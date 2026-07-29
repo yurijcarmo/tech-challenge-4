@@ -9,14 +9,28 @@ from dotenv import load_dotenv
 from functools import wraps
 import logging
 
+from telemetry import setup_telemetry
+
 # Configura o logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format=(
+        "%(asctime)s - %(levelname)s - trace_id=%(trace_id)s "
+        "span_id=%(span_id)s - %(name)s - %(message)s"
+    ),
+)
 log = logging.getLogger(__name__)
 
 # Carrega .env para desenvolvimento local
 load_dotenv()
 
 app = Flask(__name__)
+telemetry = setup_telemetry(
+    app,
+    os.getenv("OTEL_SERVICE_NAME", "flag-service"),
+    instrument_requests=True,
+    instrument_psycopg2=True,
+)
 
 # --- Configuração ---
 DATABASE_URL = os.getenv("DATABASE_URL")
