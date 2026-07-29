@@ -1,4 +1,4 @@
-.PHONY: setup-dev validate-base validate-observability validate
+.PHONY: setup-dev validate-base validate-observability validate-otel-collector validate
 
 setup-dev:
 	python3 -m venv .venv
@@ -10,4 +10,7 @@ validate-base:
 validate-observability:
 	bash scripts/validate-observability.sh
 
-validate: validate-base validate-observability
+validate-otel-collector:
+	bash scripts/validate-otel-collector.sh
+
+validate: validate-base validate-observability validate-otel-collector
