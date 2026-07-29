@@ -1,4 +1,4 @@
-.PHONY: setup-dev validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate-grafana-dashboard validate-alert-rules validate
+.PHONY: setup-dev validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate-grafana-dashboard validate-alert-rules validate-incident-chatops validate
 
 setup-dev:
 	python3 -m venv .venv
@@ -28,4 +28,7 @@ validate-grafana-dashboard:
 validate-alert-rules:
 	bash scripts/validate-alert-rules.sh
 
-validate: validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate-grafana-dashboard validate-alert-rules
+validate-incident-chatops:
+	bash scripts/validate-incident-chatops.sh
+
+validate: validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate-grafana-dashboard validate-alert-rules validate-incident-chatops

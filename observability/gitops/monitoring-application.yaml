@@ -23,6 +23,13 @@ spec:
           enabled: true
           alertmanagerSpec:
             retention: 24h
+            alertmanagerConfigSelector:
+              matchLabels:
+                app.kubernetes.io/part-of: togglemaster
+                role: alert-routing
+            alertmanagerConfigNamespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: monitoring
             resources:
               requests:
                 cpu: 50m

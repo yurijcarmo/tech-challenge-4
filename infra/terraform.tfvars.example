@@ -21,3 +21,9 @@ db_password = "SenhaForte@2026!"
 
 # Chave de ingestão da New Relic. Não use a chave real neste arquivo de exemplo.
 new_relic_license_key = "replace-with-new-relic-ingest-license-key"
+
+# PagerDuty Events API v2 routing key. Nunca use a chave real neste arquivo de exemplo.
+pagerduty_routing_key = "replace-with-pagerduty-routing-key"
+
+# Discord incoming webhook URL. Nunca use a URL real neste arquivo de exemplo.
+discord_webhook_url = "replace-with-discord-webhook-url"

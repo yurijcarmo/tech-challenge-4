@@ -1,0 +1,56 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: togglemaster-critical-notifications
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels:
+    app.kubernetes.io/name: togglemaster-alertmanager-routing
+    app.kubernetes.io/part-of: togglemaster
+    role: alert-routing
+spec:
+  route:
+    receiver: pagerduty-and-discord
+    groupBy:
+      - alertname
+      - service
+      - severity
+    groupWait: 10s
+    groupInterval: 5m
+    repeatInterval: 4h
+    matchers:
+      - name: severity
+        value: critical
+        matchType: "="
+      - name: category
+        value: availability
+        matchType: "="
+  receivers:
+    - name: pagerduty-and-discord
+      pagerdutyConfigs:
+        - sendResolved: true
+          routingKey:
+            name: alertmanager-notification-credentials
+            key: pagerduty-routing-key
+          description: '{{ .CommonAnnotations.summary }}'
+          severity: '{{ .CommonLabels.severity }}'
+          class: '{{ .CommonLabels.category }}'
+          group: '{{ .CommonLabels.team }}'
+          component: '{{ .CommonLabels.service }}'
+          source: 'ToggleMaster EKS'
+          client: 'Prometheus Alertmanager'
+      discordConfigs:
+        - sendResolved: true
+          apiURL:
+            name: alertmanager-notification-credentials
+            key: discord-webhook-url
+          username: 'ToggleMaster Alertmanager'
+          title: '{{ if eq .Status "firing" }}🚨 FIRING{{ else }}✅ RESOLVED{{ end }} — {{ .CommonLabels.alertname }}'
+          message: |-
+            **Serviço:** {{ .CommonLabels.service }}
+            **Gravidade:** {{ .CommonLabels.severity }}
+            **Resumo:** {{ .CommonAnnotations.summary }}
+            **Impacto:** {{ .CommonAnnotations.impact }}
+            **Ação recomendada:** {{ .CommonAnnotations.action }}

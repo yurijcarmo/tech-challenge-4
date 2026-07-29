@@ -128,3 +128,18 @@ resource "aws_secretsmanager_secret_version" "new_relic" {
     "license-key" = var.new_relic_license_key
   })
 }
+
+# Alertmanager incident management and ChatOps
+resource "aws_secretsmanager_secret" "alert_notifications" {
+  name                    = "eks/alert-notifications"
+  recovery_window_in_days = 0
+  tags                    = local.tags
+}
+
+resource "aws_secretsmanager_secret_version" "alert_notifications" {
+  secret_id = aws_secretsmanager_secret.alert_notifications.id
+  secret_string = jsonencode({
+    "pagerduty-routing-key" = var.pagerduty_routing_key
+    "discord-webhook-url"   = var.discord_webhook_url
+  })
+}

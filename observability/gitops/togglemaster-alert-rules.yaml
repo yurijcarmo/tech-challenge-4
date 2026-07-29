@@ -44,6 +44,7 @@ spec:
           labels:
             severity: critical
             service: auth-service
+            namespace: monitoring
             team: platform
             category: availability
             self_healing: "true"

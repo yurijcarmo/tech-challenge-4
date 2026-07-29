@@ -65,3 +65,15 @@ variable "new_relic_license_key" {
   type        = string
   sensitive   = true
 }
+
+variable "pagerduty_routing_key" {
+  description = "PagerDuty Events API v2 routing key usada pelo Alertmanager"
+  type        = string
+  sensitive   = true
+}
+
+variable "discord_webhook_url" {
+  description = "URL do webhook do Discord usada pelo Alertmanager para ChatOps"
+  type        = string
+  sensitive   = true
+}

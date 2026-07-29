@@ -39,6 +39,7 @@ resource "kubernetes_manifest" "observability" {
   depends_on = [
     module.addons-eks,
     aws_secretsmanager_secret_version.observability,
-    aws_secretsmanager_secret_version.new_relic
+    aws_secretsmanager_secret_version.new_relic,
+    aws_secretsmanager_secret_version.alert_notifications
   ]
 }
