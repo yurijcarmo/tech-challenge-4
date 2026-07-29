@@ -8,3 +8,4 @@ data:
   OTEL_SERVICE_NAME: "auth-service"
   OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector.monitoring.svc.cluster.local:4317"
   OTEL_EXPORTER_OTLP_INSECURE: "true"
+  ENABLE_FAILURE_INJECTION: "false"

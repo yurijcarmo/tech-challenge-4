@@ -1,4 +1,4 @@
-.PHONY: setup-dev validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate-grafana-dashboard validate-alert-rules validate-incident-chatops validate-self-healing validate
+.PHONY: setup-dev validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate-grafana-dashboard validate-alert-rules validate-incident-chatops validate-self-healing validate-incident-demo validate
 
 setup-dev:
 	python3 -m venv .venv
@@ -34,4 +34,7 @@ validate-incident-chatops:
 validate-self-healing:
 	bash scripts/validate-self-healing.sh
 
-validate: validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate-grafana-dashboard validate-alert-rules validate-incident-chatops validate-self-healing
+validate-incident-demo:
+	bash scripts/validate-incident-demo.sh
+
+validate: validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate-grafana-dashboard validate-alert-rules validate-incident-chatops validate-self-healing validate-incident-demo
