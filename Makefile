@@ -1,4 +1,4 @@
-.PHONY: setup-dev validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate
+.PHONY: setup-dev validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate
 
 setup-dev:
 	python3 -m venv .venv
@@ -19,4 +19,7 @@ validate-go-telemetry:
 validate-python-telemetry:
 	bash scripts/validate-python-telemetry.sh
 
-validate: validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry
+validate-apm:
+	bash scripts/validate-apm.sh
+
+validate: validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm

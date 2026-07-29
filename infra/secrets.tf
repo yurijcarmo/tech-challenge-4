@@ -114,3 +114,17 @@ resource "aws_secretsmanager_secret_version" "observability" {
     "admin-password" = random_password.grafana_admin_password.result
   })
 }
+
+# New Relic OTLP ingest
+resource "aws_secretsmanager_secret" "new_relic" {
+  name                    = "eks/newrelic"
+  recovery_window_in_days = 0
+  tags                    = local.tags
+}
+
+resource "aws_secretsmanager_secret_version" "new_relic" {
+  secret_id = aws_secretsmanager_secret.new_relic.id
+  secret_string = jsonencode({
+    "license-key" = var.new_relic_license_key
+  })
+}

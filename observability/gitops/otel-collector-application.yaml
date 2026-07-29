@@ -37,6 +37,15 @@ spec:
           enabled: true
           type: ClusterIP
 
+        extraEnvs:
+          - name: NEW_RELIC_LICENSE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: newrelic-otlp-credentials
+                key: license-key
+          - name: NEW_RELIC_OTLP_ENDPOINT
+            value: https://otlp.nr-data.net
+
         ports:
           otlp:
             enabled: true
@@ -118,6 +127,11 @@ spec:
               namespace: togglemaster
               resource_to_telemetry_conversion:
                 enabled: true
+            otlphttp/newrelic:
+              endpoint: ${env:NEW_RELIC_OTLP_ENDPOINT}
+              headers:
+                api-key: ${env:NEW_RELIC_LICENSE_KEY}
+              compression: gzip
 
           service:
             extensions:
@@ -147,6 +161,7 @@ spec:
                   - batch
                 exporters:
                   - debug
+                  - otlphttp/newrelic
 
   destination:
     server: https://kubernetes.default.svc

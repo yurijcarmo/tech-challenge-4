@@ -43,9 +43,6 @@ variable "apps_domain" {
   type        = string
 }
 
-
-
-
 variable "argocd_repo_url" {
   description = "Repositorio Git com os manifests das apps"
   type        = string
@@ -59,6 +56,12 @@ variable "argocd_target_revision" {
 
 variable "db_password" {
   description = "Senha dos bancos de dados RDS (nao commitar — definir no terraform.tfvars)"
+  type        = string
+  sensitive   = true
+}
+
+variable "new_relic_license_key" {
+  description = "New Relic ingest license key usada pelo OpenTelemetry Collector"
   type        = string
   sensitive   = true
 }

@@ -14,7 +14,10 @@ apps_domain = "desafio.seudominio.com"
 # URL do repositório GitOps (onde estão os manifestos k8s/)
 argocd_repo_url = "https://github.com/seu-usuario/seu-repo-gitops"
 
-argocd_target_revision = "fase-4-observabilidade"
+argocd_target_revision = "feat/phase-4-observability"
 
 # Senha dos bancos de dados RDS (usar valor forte em produção)
 db_password = "SenhaForte@2026!"
+
+# Chave de ingestão da New Relic. Não use a chave real neste arquivo de exemplo.
+new_relic_license_key = "replace-with-new-relic-ingest-license-key"
