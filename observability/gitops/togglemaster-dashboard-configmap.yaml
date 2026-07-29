@@ -327,8 +327,8 @@ data:
         {
           "id": 6,
           "type": "timeseries",
-          "title": "HTTP 5xx Rate by Service",
-          "description": "Taxa de respostas HTTP 5xx, base para o alerta inteligente da próxima etapa.",
+          "title": "HTTP 5xx Error Percentage by Service",
+          "description": "Percentual de respostas HTTP 5xx. A linha de 5% corresponde ao limite do alerta do auth-service.",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -341,13 +341,27 @@ data:
           },
           "fieldConfig": {
             "defaults": {
-              "unit": "reqps",
+              "unit": "percent",
               "custom": {
                 "drawStyle": "line",
                 "lineInterpolation": "linear",
                 "lineWidth": 2,
                 "fillOpacity": 12,
                 "showPoints": "never"
+              },
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
               }
             },
             "overrides": []
@@ -369,7 +383,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "sum by (service_name) (rate({__name__=~\".*togglemaster_http_server_requests.*\",http_response_status_code=~\"5..\"}[$__rate_interval]))",
+              "expr": "100 * sum by (service_name) (rate({__name__=~\".*togglemaster_http_server_requests.*\",http_response_status_code=~\"5..\"}[$__rate_interval])) / clamp_min(sum by (service_name) (rate({__name__=~\".*togglemaster_http_server_requests.*\"}[$__rate_interval])), 0.001)",
               "legendFormat": "{{service_name}}",
               "range": true
             }
