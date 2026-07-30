@@ -67,7 +67,7 @@ module "databases" {
     {
       name           = "auth"
       engine         = "postgres"
-      version        = "17.2"
+      version        = "17"
       storage        = 10
       instance_class = "db.t3.micro"
       username       = "appuser"
@@ -76,7 +76,7 @@ module "databases" {
     {
       name           = "flag"
       engine         = "postgres"
-      version        = "17.2"
+      version        = "17"
       storage        = 20
       instance_class = "db.t3.micro"
       username       = "appuser"
@@ -86,7 +86,7 @@ module "databases" {
     {
       name           = "targeting"
       engine         = "postgres"
-      version        = "17.2"
+      version        = "17"
       storage        = 20
       instance_class = "db.t3.micro"
       username       = "appuser"
