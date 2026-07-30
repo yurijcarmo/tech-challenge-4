@@ -41,14 +41,14 @@ resource "aws_security_group" "rds" {
 resource "aws_db_instance" "default" {
   for_each = { for db in var.dbs_config : db.name => db }
 
-  identifier        = "${each.value.name}-db"
-  allocated_storage = each.value.storage
-  db_name           = "${each.value.name}db"
-  engine            = each.value.engine
-  engine_version    = each.value.version
-  instance_class    = each.value.instance_class
-  username          = each.value.username
-  password          = each.value.password
+  identifier          = "${each.value.name}-db"
+  allocated_storage   = each.value.storage
+  db_name             = "${each.value.name}db"
+  engine              = each.value.engine
+  engine_version      = each.value.version
+  instance_class      = each.value.instance_class
+  username            = each.value.username
+  password            = each.value.password
   skip_final_snapshot = true
 
   db_subnet_group_name   = aws_db_subnet_group.default.name

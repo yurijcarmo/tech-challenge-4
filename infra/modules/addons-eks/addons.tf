@@ -17,16 +17,16 @@ resource "kubernetes_namespace_v1" "ingress_nginx" {
 }
 
 resource "helm_release" "ingress_nginx" {
-  name         = "ingress-nginx"
-  repository   = "https://kubernetes.github.io/ingress-nginx"
-  chart        = "ingress-nginx"
-  version      = "4.10.1"
-  namespace    = "ingress-nginx"
-  force_update      = true
-  replace           = true    # AWS ACADEMY: substitui release em estado failed
-  cleanup_on_fail   = true    # AWS ACADEMY: limpa recursos em caso de falha no upgrade
-  wait              = false   # AWS ACADEMY: NLB demora para provisionar, não bloquear o apply
-  timeout           = 600
+  name            = "ingress-nginx"
+  repository      = "https://kubernetes.github.io/ingress-nginx"
+  chart           = "ingress-nginx"
+  version         = "4.10.1"
+  namespace       = "ingress-nginx"
+  force_update    = true
+  replace         = true  # AWS ACADEMY: substitui release em estado failed
+  cleanup_on_fail = true  # AWS ACADEMY: limpa recursos em caso de falha no upgrade
+  wait            = false # AWS ACADEMY: NLB demora para provisionar, não bloquear o apply
+  timeout         = 600
 
   set = [
     {
@@ -161,9 +161,9 @@ resource "kubernetes_service_account_v1" "external_secrets" {
 }
 
 resource "helm_release" "external_secrets" {
-  name    = "external-secrets"
-  chart   = "oci://ghcr.io/external-secrets/charts/external-secrets"
-  version = "0.10.4"
+  name         = "external-secrets"
+  chart        = "oci://ghcr.io/external-secrets/charts/external-secrets"
+  version      = "0.10.4"
   namespace    = "external-secrets"
   replace      = true # AWS ACADEMY: substitui release em estado failed
   wait         = true
@@ -197,8 +197,8 @@ resource "helm_release" "keda" {
   chart        = "keda"
   version      = "2.15.0"
   namespace    = "keda"
-  force_update = true # AWS ACADEMY: evita erro "cannot re-use a name that is still in use"
-  replace      = true # AWS ACADEMY: substitui release em estado failed
+  force_update = true  # AWS ACADEMY: evita erro "cannot re-use a name that is still in use"
+  replace      = true  # AWS ACADEMY: substitui release em estado failed
   wait         = false # AWS ACADEMY: CRDs podem não estar prontos no timeout — evita "scaledobjects.keda.sh not found"
   timeout      = 600
 
@@ -287,7 +287,7 @@ resource "helm_release" "argocd" {
     yamlencode({
       configs = {
         secret = {
-          createSecret = true
+          createSecret          = true
           argocdServerSecretkey = random_password.argocd_server_secretkey.result
         }
         cm = {
