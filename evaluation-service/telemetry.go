@@ -136,7 +136,7 @@ func (t *Telemetry) metricsMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(response, r)
 
-		route := r.Pattern
+		route := r.URL.Path
 		if route == "" {
 			route = r.URL.Path
 		}

@@ -4,7 +4,6 @@ import os
 import signal
 import sys
 import threading
-import time
 import uuid
 
 import boto3
