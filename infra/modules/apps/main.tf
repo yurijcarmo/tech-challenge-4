@@ -67,62 +67,49 @@ resource "kubernetes_manifest" "apps" {
   ]
 }
 
-resource "null_resource" "apps_ingress" {
+resource "kubernetes_ingress_v1" "apps_ingress" {
   for_each = local.apps_by_name
 
-  triggers = {
-    app_name    = each.value.name
-    apps_domain = var.apps_domain
-    path_prefix = each.value.path_prefix
-    port        = each.value.port
+  metadata {
+    name      = "${each.key}-ingress"
+    namespace = each.value.namespace
+
+    annotations = {
+      "nginx.ingress.kubernetes.io/use-regex"          = "true"
+      "nginx.ingress.kubernetes.io/rewrite-target"     = "/$2"
+      "nginx.ingress.kubernetes.io/proxy-read-timeout" = "60"
+      "nginx.ingress.kubernetes.io/proxy-send-timeout" = "60"
+      "external-dns.alpha.kubernetes.io/hostname"      = var.apps_domain
+    }
   }
 
-  provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-c"]
+  spec {
+    ingress_class_name = "nginx"
 
-    command = <<-EOT
-      set -euo pipefail
+    rule {
+      host = var.apps_domain
 
-      KUBECONFIG_FILE="$(mktemp "/tmp/togglemaster-${each.key}.XXXXXX")"
-      trap 'rm -f "$KUBECONFIG_FILE"' EXIT
+      http {
+        path {
+          path      = "${each.value.path_prefix}(/|$)(.*)"
+          path_type = "ImplementationSpecific"
 
-      aws eks update-kubeconfig \
-        --name terraform-eks-setup-cluster \
-        --region us-east-1 \
-        --kubeconfig "$KUBECONFIG_FILE"
+          backend {
+            service {
+              name = each.key
 
-      kubectl \
-        --kubeconfig "$KUBECONFIG_FILE" \
-        apply -f - <<'EOF'
-      apiVersion: networking.k8s.io/v1
-      kind: Ingress
-      metadata:
-        name: ${each.key}-ingress
-        namespace: ${each.value.namespace}
-        annotations:
-          nginx.ingress.kubernetes.io/use-regex: "true"
-          nginx.ingress.kubernetes.io/rewrite-target: /$2
-          nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
-          nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
-          external-dns.alpha.kubernetes.io/hostname: ${var.apps_domain}
-      spec:
-        ingressClassName: nginx
-        rules:
-          - host: ${var.apps_domain}
-            http:
-              paths:
-                - path: ${each.value.path}
-                  pathType: Prefix
-                  backend:
-                    service:
-                      name: ${each.key}
-                      port:
-                        number: ${each.value.port}
-      EOF
-    EOT
+              port {
+                number = each.value.port
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   depends_on = [
-    kubernetes_namespace_v1.apps
+    kubernetes_namespace_v1.apps,
   ]
 }
+
