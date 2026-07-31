@@ -134,7 +134,7 @@ jobs:
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ inputs.ecr_repo }}:${{ steps.tag.outputs.tag }}
 
   update-gitops:
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
     name: Atualizar manifesto GitOps
     runs-on: ubuntu-latest
     needs: docker-build-push
