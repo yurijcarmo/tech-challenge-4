@@ -8,6 +8,12 @@ resource "kubernetes_namespace_v1" "apps" {
   metadata {
     name = each.value.namespace
   }
+
+  lifecycle {
+    ignore_changes = [
+      metadata[0].annotations,
+    ]
+  }
 }
 
 resource "kubernetes_manifest" "apps" {
