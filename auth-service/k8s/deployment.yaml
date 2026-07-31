@@ -32,7 +32,7 @@ spec:
               mountPath: /migrations
       containers:
         - name: auth-service
-          image: 698173141574.dkr.ecr.us-east-1.amazonaws.com/auth-service:v1.0.0-de99fca
+          image: 698173141574.dkr.ecr.us-east-1.amazonaws.com/auth-service:v1.0.0-7d03f8e
           imagePullPolicy: Always
           resources:
             requests:
