@@ -33,7 +33,17 @@ func (a *App) evaluationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Obter a decisão (lógica de cache/serviço está em evaluator.go)
-	result, err := a.getDecision(userID, flagName)
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(
+			w,
+			`{"error": "Authorization header obrigatório"}`,
+			http.StatusUnauthorized,
+		)
+		return
+	}
+
+	result, err := a.getDecision(userID, flagName, authHeader)
 	if err != nil {
 		// Se o erro for "não encontrado", retornamos 'false' (comportamento seguro)
 		if _, ok := err.(*NotFoundError); ok {
