@@ -38,7 +38,8 @@ resource "kubernetes_manifest" "apps" {
           name      = each.value.name
           namespace = each.value.namespace
           jsonPointers = [
-            "/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt"
+            "/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt",
+            "/spec/replicas"
           ]
         }
       ]
