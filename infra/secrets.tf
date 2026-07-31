@@ -10,6 +10,11 @@ locals {
   redis_port     = tostring(values(module.elasticache.cache_ports)[0])
 }
 
+resource "random_password" "auth_master_key" {
+  length  = 32
+  special = false
+}
+
 # auth-service
 resource "aws_secretsmanager_secret" "auth_service" {
   name                    = "eks/auth-service"
@@ -25,6 +30,7 @@ resource "aws_secretsmanager_secret_version" "auth_service" {
     DB_USER     = module.databases.db_usernames["auth"]
     DB_PASSWORD = var.db_password
     DB_NAME     = module.databases.db_names["auth"]
+    MASTER_KEY  = random_password.auth_master_key.result
   })
 }
 
