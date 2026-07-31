@@ -1,6 +1,7 @@
 name: CI - analytics-service
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:

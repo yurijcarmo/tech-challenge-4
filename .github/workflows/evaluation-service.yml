@@ -1,6 +1,7 @@
 name: CI - evaluation-service
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
