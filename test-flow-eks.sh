@@ -1,16 +1,86 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+MASTER_KEY="${MASTER_KEY:-}"
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-AUTH_URL="${AUTH_URL:-https://desafio.yuricarmo.click/auth}"
-FLAG_URL="${FLAG_URL:-https://desafio.yuricarmo.click/flag}"
-TARGETING_URL="${TARGETING_URL:-https://desafio.yuricarmo.click/targeting}"
-EVAL_URL="${EVAL_URL:-https://desafio.yuricarmo.click/evaluation}"
+HTTP_SCHEME="${HTTP_SCHEME:-http}"
+LB_HOST="${LB_HOST:-}"
+
+if [ -z "$LB_HOST" ]; then
+  if ! command -v kubectl >/dev/null 2>&1; then
+    echo "Erro: kubectl nao encontrado no PATH." >&2
+    exit 1
+  fi
+
+  LB_HOST="$(
+    kubectl get service       -n ingress-nginx       ingress-nginx-controller       -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+  )"
+fi
+
+if [ -z "$LB_HOST" ]; then
+  echo "Erro: o hostname do Load Balancer do ingress-nginx nao foi encontrado." >&2
+  exit 1
+fi
+
+BASE_URL="${BASE_URL:-${HTTP_SCHEME}://${LB_HOST}}"
+
+AUTH_URL="${AUTH_URL:-${BASE_URL}/auth}"
+FLAG_URL="${FLAG_URL:-${BASE_URL}/flag}"
+TARGETING_URL="${TARGETING_URL:-${BASE_URL}/targeting}"
+EVAL_URL="${EVAL_URL:-${BASE_URL}/evaluation}"
+
+# Usa a chave informada pelo usuário ou recupera automaticamente
+# o valor sincronizado pelo External Secrets no Kubernetes.
+if [ -z "${MASTER_KEY:-}" ]; then
+  if ! command -v kubectl >/dev/null 2>&1; then
+    echo "Erro: kubectl não encontrado e MASTER_KEY não foi informada." >&2
+    exit 1
+  fi
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "Erro: python3 não encontrado para decodificar o Secret." >&2
+    exit 1
+  fi
+
+  MASTER_KEY_B64="$(
+    kubectl get secret \
+      -n auth-service \
+      auth-service-secrets \
+      -o jsonpath='{.data.MASTER_KEY}' \
+      2>/dev/null || true
+  )"
+
+  if [ -z "$MASTER_KEY_B64" ]; then
+    echo "Erro: MASTER_KEY não encontrada no Secret auth-service-secrets." >&2
+    exit 1
+  fi
+
+  MASTER_KEY="$(
+    printf '%s' "$MASTER_KEY_B64" |
+      python3 -c '
+import base64
+import sys
+
+encoded = sys.stdin.read().strip()
+print(base64.b64decode(encoded).decode(), end="")
+'
+  )"
+
+  unset MASTER_KEY_B64
+fi
+
+if [ -z "${MASTER_KEY:-}" ]; then
+  echo "Erro: MASTER_KEY está vazia." >&2
+  exit 1
+fi
+
+echo "Load Balancer detectado: $LB_HOST"
+echo "URL base dos microsservicos: $BASE_URL"
 
 SERVICE_API_KEY="${SERVICE_API_KEY:-}"
-MASTER_KEY="${MASTER_KEY:-admin-secreto-123}"
 RULE_PERCENT="${RULE_PERCENT:-50}"
 USER_ID="${USER_ID:-user-$RANDOM}"
 
@@ -20,7 +90,7 @@ wait_for_health() {
 
   echo "Aguardando $name em $url..."
   for _ in {1..30}; do
-    if curl -fsS "$url" >/dev/null 2>&1; then
+    if curl -fsS --connect-timeout 5 --max-time 10 "$url" >/dev/null 2>&1; then
       echo "$name OK"
       return 0
     fi
@@ -72,7 +142,7 @@ PY
   echo "SERVICE_API_KEY definida para esta execucao."
 fi
 
-echo "Chave de API: $SERVICE_API_KEY"
+echo "Chave de API criada com sucesso."
 
 RAND_SUFFIX="$(date +%s)-$RANDOM"
 FLAG_NAME="enable-new-dashboard-$RAND_SUFFIX"
@@ -98,6 +168,41 @@ if [ "$RULE_STATUS" != "201" ]; then
 fi
 
 echo "Testando avaliacao (user_id=$USER_ID)..."
-echo "Endpoint: $EVAL_URL/evaluate?user_id=$USER_ID&flag_name=$FLAG_NAME"
-curl -fsS "$EVAL_URL/evaluate?user_id=$USER_ID&flag_name=$FLAG_NAME"
-echo
+
+if [ -z "${SERVICE_API_KEY:-}" ]; then
+  echo "Erro: SERVICE_API_KEY está vazia antes da avaliação."
+  exit 1
+fi
+
+EVAL_ENDPOINT="${EVAL_URL}/evaluate?user_id=${USER_ID}&flag_name=${FLAG_NAME}"
+
+echo "Endpoint: $EVAL_ENDPOINT"
+echo "API key carregada (${#SERVICE_API_KEY} caracteres)."
+
+EVAL_BODY_FILE="$(mktemp)"
+
+EVAL_STATUS="$(
+  curl -sS \
+    --connect-timeout 5 \
+    --max-time 20 \
+    --output "$EVAL_BODY_FILE" \
+    --write-out '%{http_code}' \
+    --header "Authorization: Bearer ${SERVICE_API_KEY}" \
+    "$EVAL_ENDPOINT" || true
+)"
+
+EVAL_BODY="$(cat "$EVAL_BODY_FILE" 2>/dev/null || true)"
+rm -f "$EVAL_BODY_FILE"
+
+if [ "$EVAL_STATUS" != "200" ]; then
+  echo "Erro na avaliação (status ${EVAL_STATUS:-unknown})."
+
+  if [ -n "$EVAL_BODY" ]; then
+    echo "Resposta: $EVAL_BODY"
+  fi
+
+  exit 1
+fi
+
+echo "Avaliação concluída com sucesso."
+printf '%s\n' "$EVAL_BODY"
