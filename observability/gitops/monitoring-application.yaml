@@ -95,6 +95,8 @@ spec:
                 memory: 1Gi
 
         prometheusOperator:
+          tls:
+            enabled: false
           admissionWebhooks:
             enabled: false
           resources:
