@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: analytics-service
-          image: 930110167229.dkr.ecr.us-east-1.amazonaws.com/analytics-service:v1.0.0-e8d175c
+          image: 698173141574.dkr.ecr.us-east-1.amazonaws.com/analytics-service:v1.0.0-e8d175c
           imagePullPolicy: Always
           resources:
             requests:

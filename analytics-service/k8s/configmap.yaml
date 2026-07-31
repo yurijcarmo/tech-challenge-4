@@ -6,7 +6,7 @@ metadata:
 data:
   PORT: "8005"
   AWS_REGION: "us-east-1"
-  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/930110167229/analytics-queue-sqs-queue"
+  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/698173141574/analytics-queue-sqs-queue"
   AWS_DYNAMODB_TABLE: "ToggleMasterAnalytics"
   # AWS_ACCESS_KEY_ID: "REPLACE_ME_ACCESS_KEY_ID"
   # AWS_SECRET_ACCESS_KEY: "REPLACE_ME_SECRET_ACCESS_KEY"
