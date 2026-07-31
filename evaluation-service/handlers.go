@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 )
 
 type EvaluationResponse struct {
@@ -46,7 +48,12 @@ func (a *App) evaluationHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Enviar evento para SQS (assincronamente)
 	// Isso não bloqueia a resposta para o cliente.
-	go a.sendEvaluationEvent(userID, flagName, result)
+	eventCtx := context.WithoutCancel(r.Context())
+	go func() {
+		ctx, cancel := context.WithTimeout(eventCtx, 10*time.Second)
+		defer cancel()
+		a.sendEvaluationEvent(ctx, userID, flagName, result)
+	}()
 
 	// 4. Retornar a resposta
 	w.WriteHeader(http.StatusOK)

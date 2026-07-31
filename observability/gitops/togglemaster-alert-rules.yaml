@@ -1,0 +1,55 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: togglemaster-application-alerts
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels:
+    app.kubernetes.io/name: togglemaster-alerts
+    app.kubernetes.io/part-of: togglemaster
+    role: alert-rules
+spec:
+  groups:
+    - name: togglemaster.application.availability
+      interval: 30s
+      rules:
+        - alert: AuthServiceHigh5xxErrorRate
+          expr: |
+            (
+              sum(
+                rate(
+                  {__name__=~".*togglemaster_http_server_requests.*", service_name="auth-service", http_response_status_code=~"5.."}[5m]
+                )
+              )
+              /
+              clamp_min(
+                sum(
+                  rate(
+                    {__name__=~".*togglemaster_http_server_requests.*", service_name="auth-service"}[5m]
+                  )
+                ),
+                0.001
+              )
+            ) > 0.05
+            and
+            sum(
+              increase(
+                {__name__=~".*togglemaster_http_server_requests.*", service_name="auth-service"}[5m]
+              )
+            ) >= 20
+          for: 2m
+          keep_firing_for: 2m
+          labels:
+            severity: critical
+            service: auth-service
+            namespace: monitoring
+            team: platform
+            category: availability
+            self_healing: "true"
+          annotations:
+            summary: "auth-service com taxa elevada de erros HTTP 5xx"
+            description: "Mais de 5% das requisições do auth-service retornaram HTTP 5xx nos últimos 5 minutos, com pelo menos 20 requisições no período. Valor atual: {{ $value | humanizePercentage }}."
+            impact: "As validações de autenticação podem falhar e afetar flag-service e targeting-service."
+            action: "Abrir incidente, notificar o canal de ChatOps e reiniciar o deployment/auth-service."

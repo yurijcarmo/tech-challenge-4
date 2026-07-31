@@ -10,6 +10,11 @@ locals {
   redis_port     = tostring(values(module.elasticache.cache_ports)[0])
 }
 
+resource "random_password" "auth_master_key" {
+  length  = 32
+  special = false
+}
+
 # auth-service
 resource "aws_secretsmanager_secret" "auth_service" {
   name                    = "eks/auth-service"
@@ -25,6 +30,7 @@ resource "aws_secretsmanager_secret_version" "auth_service" {
     DB_USER     = module.databases.db_usernames["auth"]
     DB_PASSWORD = var.db_password
     DB_NAME     = module.databases.db_names["auth"]
+    MASTER_KEY  = random_password.auth_master_key.result
   })
 }
 
@@ -92,5 +98,54 @@ resource "aws_secretsmanager_secret_version" "analytics_service" {
     DYNAMODB_TABLE     = "ToggleMasterAnalytics"
     SQS_QUEUE_URL      = local.sqs_queue_url
     AWS_DEFAULT_REGION = "us-east-1"
+  })
+}
+
+# observability stack
+resource "random_password" "grafana_admin_password" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "observability" {
+  name                    = "eks/observability"
+  recovery_window_in_days = 0
+  tags                    = local.tags
+}
+
+resource "aws_secretsmanager_secret_version" "observability" {
+  secret_id = aws_secretsmanager_secret.observability.id
+  secret_string = jsonencode({
+    "admin-user"     = "admin"
+    "admin-password" = random_password.grafana_admin_password.result
+  })
+}
+
+# New Relic OTLP ingest
+resource "aws_secretsmanager_secret" "new_relic" {
+  name                    = "eks/newrelic"
+  recovery_window_in_days = 0
+  tags                    = local.tags
+}
+
+resource "aws_secretsmanager_secret_version" "new_relic" {
+  secret_id = aws_secretsmanager_secret.new_relic.id
+  secret_string = jsonencode({
+    "license-key" = var.new_relic_license_key
+  })
+}
+
+# Alertmanager incident management and ChatOps
+resource "aws_secretsmanager_secret" "alert_notifications" {
+  name                    = "eks/alert-notifications"
+  recovery_window_in_days = 0
+  tags                    = local.tags
+}
+
+resource "aws_secretsmanager_secret_version" "alert_notifications" {
+  secret_id = aws_secretsmanager_secret.alert_notifications.id
+  secret_string = jsonencode({
+    "pagerduty-routing-key" = var.pagerduty_routing_key
+    "discord-webhook-url"   = var.discord_webhook_url
   })
 }

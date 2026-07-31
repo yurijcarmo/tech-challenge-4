@@ -5,11 +5,14 @@ metadata:
   namespace: evaluation-service
 data:
   PORT: "8004"
+  OTEL_SERVICE_NAME: "evaluation-service"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.monitoring.svc.cluster.local:4317"
+  OTEL_EXPORTER_OTLP_INSECURE: "true"
   REDIS_URL: "redis://redis-cache-cluster.ln0uci.0001.use1.cache.amazonaws.com:6379"
   FLAG_SERVICE_URL: "http://flag-service.flag-service.svc.cluster.local:8002"
   TARGETING_SERVICE_URL: "http://targeting-service.targeting-service.svc.cluster.local:8003"
   # SERVICE_API_KEY: "REPLACE_ME_SERVICE_API_KEY"
-  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/930110167229/analytics-queue-sqs-queue"
+  AWS_SQS_URL: "https://sqs.us-east-1.amazonaws.com/698173141574/analytics-queue-sqs-queue"
   AWS_REGION: "us-east-1"
   # AWS_SQS_ENDPOINT: "REPLACE_ME_SQS_ENDPOINT"
   # AWS_ACCESS_KEY_ID: "REPLACE_ME_ACCESS_KEY_ID"

@@ -8,3 +8,8 @@ evaluation-service/evaluation-service
 ROTEIRO_APRESENTACAO.md
 RELATORIO_ACADEMICO.md
 Alternatively,
+
+.DS_Store
+
+__pycache__/
+*.py[cod]

@@ -11,7 +11,7 @@ spec:
   triggers:
     - type: aws-sqs-queue
       metadata:
-        queueURL: "https://sqs.us-east-1.amazonaws.com/930110167229/analytics-queue-sqs-queue"
+        queueURL: "https://sqs.us-east-1.amazonaws.com/698173141574/analytics-queue-sqs-queue"
         queueLength: "1"
         awsRegion: "us-east-1"
       authenticationRef:
