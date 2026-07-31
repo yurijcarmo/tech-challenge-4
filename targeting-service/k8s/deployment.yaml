@@ -32,7 +32,7 @@ spec:
               mountPath: /migrations
       containers:
         - name: targeting-service
-          image: 698173141574.dkr.ecr.us-east-1.amazonaws.com/targeting-service:v1.0.0-de99fca
+          image: 698173141574.dkr.ecr.us-east-1.amazonaws.com/targeting-service:v1.0.0-4293099
           imagePullPolicy: Always
           resources:
             requests:
