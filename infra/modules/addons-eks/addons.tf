@@ -22,8 +22,8 @@ resource "helm_release" "ingress_nginx" {
   chart           = "ingress-nginx"
   version         = "4.10.1"
   namespace       = "ingress-nginx"
-  force_update    = true
-  replace         = true  # AWS ACADEMY: substitui release em estado failed
+  force_update    = false # atualiza recursos sem tentar substituí-los
+  replace         = false # preserva o Service e seu loadBalancerClass
   cleanup_on_fail = true  # AWS ACADEMY: limpa recursos em caso de falha no upgrade
   wait            = false # AWS ACADEMY: NLB demora para provisionar, não bloquear o apply
   timeout         = 600
@@ -56,6 +56,10 @@ resource "helm_release" "ingress_nginx" {
     {
       name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme"
       value = "internet-facing"
+    },
+    {
+      name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-attributes"
+      value = "load_balancing.cross_zone.enabled=true"
     },
     {
       name  = "controller.service.ports.http"
