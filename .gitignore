@@ -6,10 +6,10 @@ evaluation-service/evaluation-service
 *.pdf
 *.code-workspace
 ROTEIRO_APRESENTACAO.md
-RELATORIO_ACADEMICO.md
 Alternatively,
-
 .DS_Store
-
 __pycache__/
 *.py[cod]
+**/tfplan*
+*.tfplan
+# Terraform saved plans
