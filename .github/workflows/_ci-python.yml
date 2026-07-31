@@ -141,6 +141,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
 
       - name: Configurar credenciais AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -167,7 +169,22 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add ${{ inputs.service }}/k8s/deployment.yaml
           git diff --cached --quiet || git commit -m "ci: atualiza imagem ${{ inputs.service }} para ${{ needs.docker-build-push.outputs.image_tag }}"
+          TARGET_BRANCH="${{ github.head_ref || github.ref_name }}"
+          success=false
+
           for i in 1 2 3 4 5; do
-            git pull --rebase origin main && git push && break
+            echo "Tentativa $i: atualizando $TARGET_BRANCH"
+
+            if git pull --rebase origin "$TARGET_BRANCH" &&
+               git push origin "HEAD:$TARGET_BRANCH"; then
+              success=true
+              break
+            fi
+
             sleep $((i * 3))
           done
+
+          if [[ "$success" != "true" ]]; then
+            echo "❌ Não foi possível atualizar a branch $TARGET_BRANCH"
+            exit 1
+          fi
