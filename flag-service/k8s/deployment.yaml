@@ -32,7 +32,7 @@ spec:
               mountPath: /migrations
       containers:
         - name: flag-service
-          image: 698173141574.dkr.ecr.us-east-1.amazonaws.com/flag-service:v1.0.0-de99fca
+          image: 698173141574.dkr.ecr.us-east-1.amazonaws.com/flag-service:v1.0.0-2dc03af
           imagePullPolicy: Always
           resources:
             requests:
