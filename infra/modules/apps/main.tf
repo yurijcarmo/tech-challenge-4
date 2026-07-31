@@ -78,34 +78,47 @@ resource "null_resource" "apps_ingress" {
   }
 
   provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-c"]
+
     command = <<-EOT
-      aws eks update-kubeconfig --name ${var.eks_cluster_name} --region ${var.aws_region}
-      kubectl apply -f - <<EOF
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: ${each.value.name}-ingress
-  namespace: ${each.value.namespace}
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
-    external-dns.alpha.kubernetes.io/hostname: ${var.apps_domain}
-spec:
-  ingressClassName: ${var.ingress_class_name}
-  rules:
-  - host: ${var.apps_domain}
-    http:
-      paths:
-      - path: ${each.value.path_prefix}(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: ${each.value.name}
-            port:
-              number: ${each.value.port}
-EOF
+      set -euo pipefail
+
+      KUBECONFIG_FILE="$(mktemp "/tmp/togglemaster-${each.key}.XXXXXX")"
+      trap 'rm -f "$KUBECONFIG_FILE"' EXIT
+
+      aws eks update-kubeconfig \
+        --name terraform-eks-setup-cluster \
+        --region us-east-1 \
+        --kubeconfig "$KUBECONFIG_FILE"
+
+      kubectl \
+        --kubeconfig "$KUBECONFIG_FILE" \
+        apply -f - <<'EOF'
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: ${each.key}-ingress
+        namespace: ${each.value.namespace}
+        annotations:
+          nginx.ingress.kubernetes.io/use-regex: "true"
+          nginx.ingress.kubernetes.io/rewrite-target: /$2
+          nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+          nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+          external-dns.alpha.kubernetes.io/hostname: ${var.apps_domain}
+      spec:
+        ingressClassName: nginx
+        rules:
+          - host: ${var.apps_domain}
+            http:
+              paths:
+                - path: ${each.value.path}
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: ${each.key}
+                      port:
+                        number: ${each.value.port}
+      EOF
     EOT
   }
 
