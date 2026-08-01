@@ -30,6 +30,8 @@ spec:
             alertmanagerConfigNamespaceSelector:
               matchLabels:
                 kubernetes.io/metadata.name: monitoring
+            alertmanagerConfigMatcherStrategy:
+              type: OnNamespaceExceptForAlertmanagerNamespace
             resources:
               requests:
                 cpu: 50m
