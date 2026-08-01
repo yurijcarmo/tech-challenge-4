@@ -1,4 +1,4 @@
-.PHONY: setup-dev validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate-grafana-dashboard validate-alert-rules validate-incident-chatops validate-self-healing validate-incident-demo validate notification-demo incident-demo telemetry-demo telemetry-application telemetry-synthetic
+.PHONY: setup-dev validate-base validate-observability validate-otel-collector validate-go-telemetry validate-python-telemetry validate-apm validate-grafana-dashboard validate-alert-rules validate-incident-chatops validate-self-healing validate-incident-demo validate notification-demo incident-demo telemetry-demo telemetry-application telemetry-synthetic self-healing-evidence
 
 setup-dev:
 	python3 -m venv .venv
@@ -53,3 +53,6 @@ telemetry-application:
 
 telemetry-demo:
 	bash scripts/run-telemetry-demo.sh demo
+
+self-healing-evidence:
+	bash scripts/verify-self-healing-demo.sh
