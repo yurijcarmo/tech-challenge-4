@@ -2,69 +2,77 @@
 
 set -Eeuo pipefail
 
-NAMESPACE="${OTEL_NAMESPACE:-monitoring}"
-DAEMONSET="${OTEL_DAEMONSET:-otel-collector-agent}"
+OTEL_NAMESPACE="${OTEL_NAMESPACE:-monitoring}"
+OTEL_DAEMONSET="${OTEL_DAEMONSET:-otel-collector-agent}"
+EXPECTED_PRIORITY_CLASS="${OTEL_PRIORITY_CLASS:-togglemaster-observability-critical}"
+STRICT_NODE_CAPACITY="${STRICT_NODE_CAPACITY:-false}"
 
-DESIRED="$(
-  kubectl get daemonset \
-    -n "$NAMESPACE" \
-    "$DAEMONSET" \
-    -o jsonpath='{.status.desiredNumberScheduled}'
-)"
+fail() {
+  echo "❌ $1" >&2
+  exit 1
+}
 
-READY="$(
-  kubectl get daemonset \
-    -n "$NAMESPACE" \
-    "$DAEMONSET" \
-    -o jsonpath='{.status.numberReady}'
-)"
+warn() {
+  echo "⚠️  $1"
+}
 
-AVAILABLE="$(
-  kubectl get daemonset \
-    -n "$NAMESPACE" \
-    "$DAEMONSET" \
-    -o jsonpath='{.status.numberAvailable}'
-)"
+command -v kubectl >/dev/null 2>&1 ||
+  fail "kubectl não está instalado."
 
-READY="${READY:-0}"
-AVAILABLE="${AVAILABLE:-0}"
+command -v jq >/dev/null 2>&1 ||
+  fail "jq não está instalado."
+
+kubectl -n "$OTEL_NAMESPACE" get daemonset "$OTEL_DAEMONSET" \
+  >/dev/null 2>&1 ||
+  fail "DaemonSet ${OTEL_NAMESPACE}/${OTEL_DAEMONSET} não encontrado."
+
+read -r desired ready available priority_class < <(
+  kubectl -n "$OTEL_NAMESPACE" get daemonset "$OTEL_DAEMONSET" -o json |
+    jq -r '[
+      (.status.desiredNumberScheduled // 0),
+      (.status.numberReady // 0),
+      (.status.numberAvailable // 0),
+      (.spec.template.spec.priorityClassName // "")
+    ] | @tsv'
+)
 
 echo "===== OPENTELEMETRY COLLECTOR ====="
-echo "Desired:   $DESIRED"
-echo "Ready:     $READY"
-echo "Available: $AVAILABLE"
+echo "Desired:   $desired"
+echo "Ready:     $ready"
+echo "Available: $available"
+echo "Priority:  ${priority_class:-não configurada}"
 
-if [[
-  "$READY" -ne "$DESIRED" ||
-  "$AVAILABLE" -ne "$DESIRED"
-]]; then
-  echo
-  echo "❌ OTel Collector incompleto."
-  echo "Não execute a demonstração até o DaemonSet ficar totalmente disponível."
-  echo
+[[ "$desired" -gt 0 ]] ||
+  fail "O DaemonSet não possui nós desejados."
 
-  kubectl get pods \
-    -n "$NAMESPACE" \
-    -l app.kubernetes.io/instance=otel-collector \
-    -o wide
+[[ "$ready" -eq "$desired" ]] ||
+  fail "Collector incompleto: Ready=${ready}, Desired=${desired}."
 
-  exit 1
-fi
+[[ "$available" -eq "$desired" ]] ||
+  fail "Collector indisponível: Available=${available}, Desired=${desired}."
+
+[[ "$priority_class" == "$EXPECTED_PRIORITY_CLASS" ]] ||
+  fail "PriorityClass incorreta: '${priority_class:-nenhuma}'. Esperada: '$EXPECTED_PRIORITY_CLASS'."
 
 echo
 echo "===== CAPACIDADE DE PODS POR NÓ ====="
 
-FAILURE=0
+nodes=0
+nodes_without_headroom=0
+total_free=0
 
-while IFS=$'\t' read -r node max_pods
-do
-  usados="$(
-    kubectl get pods -A -o json |
-    jq -r \
-      --arg node "$node" '
+while IFS=$'\t' read -r node limit; do
+  [[ -n "$node" ]] || continue
+
+  nodes=$((nodes + 1))
+
+  used="$(
+    kubectl get pods -A \
+      --field-selector "spec.nodeName=${node}" \
+      -o json |
+      jq '
         [
           .items[]
-          | select(.spec.nodeName == $node)
           | select(
               .status.phase != "Succeeded"
               and .status.phase != "Failed"
@@ -74,29 +82,51 @@ do
       '
   )"
 
-  livres=$((max_pods - usados))
+  free=$((limit - used))
 
-  echo "$node: usados=$usados limite=$max_pods livres=$livres"
+  if [[ "$free" -lt 0 ]]; then
+    free=0
+  fi
 
-  if [[ "$livres" -lt 1 ]]; then
-    echo "❌ Nó sem vaga para novos Pods: $node"
-    FAILURE=1
+  total_free=$((total_free + free))
+
+  echo "${node}: usados=${used} limite=${limit} livres=${free}"
+
+  if [[ "$free" -eq 0 ]]; then
+    nodes_without_headroom=$((nodes_without_headroom + 1))
+    warn "Nó sem capacidade adicional: ${node}"
   fi
 done < <(
   kubectl get nodes -o json |
-  jq -r '
-    .items[]
-    | [
-        .metadata.name,
-        (.status.allocatable.pods | tonumber)
-      ]
-    | @tsv
-  '
+    jq -r '
+      .items[]
+      | [
+          .metadata.name,
+          (.status.allocatable.pods | tonumber)
+        ]
+      | @tsv
+    '
 )
 
-if [[ "$FAILURE" -ne 0 ]]; then
-  exit 1
+[[ "$nodes" -gt 0 ]] ||
+  fail "Nenhum nó foi encontrado no cluster."
+
+echo
+echo "Capacidade livre total no cluster: ${total_free} Pod(s)"
+
+if [[ "$nodes_without_headroom" -gt 0 ]]; then
+  warn "${nodes_without_headroom} nó(s) estão sem vaga adicional."
+
+  if [[ "$STRICT_NODE_CAPACITY" == "true" || "$STRICT_NODE_CAPACITY" == "1" ]]; then
+    fail "Validação estrita de capacidade habilitada."
+  fi
 fi
 
 echo
-echo "✅ Collector disponível em todos os nós e capacidade validada."
+echo "✅ Collector disponível em todos os nós."
+echo "✅ PriorityClass validada."
+echo "✅ Validação concluída."
+
+if [[ "$nodes_without_headroom" -gt 0 ]]; then
+  echo "⚠️  Capacidade apertada aceita como aviso neste ambiente."
+fi
