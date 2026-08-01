@@ -134,6 +134,14 @@ spec:
               compression: gzip
 
           service:
+            telemetry:
+              metrics:
+                readers:
+                  - pull:
+                      exporter:
+                        prometheus:
+                          host: ${env:MY_POD_IP}
+                          port: 8888
             extensions:
               - health_check
             pipelines:
