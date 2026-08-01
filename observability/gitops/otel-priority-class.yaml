@@ -1,0 +1,10 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: togglemaster-observability-critical
+value: 1000000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: >-
+  Prioridade para agentes de observabilidade que precisam executar
+  em todos os nós do cluster.

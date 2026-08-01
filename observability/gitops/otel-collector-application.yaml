@@ -18,6 +18,7 @@ spec:
       valuesObject:
         fullnameOverride: otel-collector
         mode: daemonset
+        priorityClassName: togglemaster-observability-critical
 
         image:
           repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
