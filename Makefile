@@ -59,3 +59,7 @@ self-healing-evidence:
 
 validate-otel-runtime:
 	bash scripts/validate-otel-runtime.sh
+
+.PHONY: refresh-aws-session
+refresh-aws-session:
+	bash scripts/update-aws-session-credentials.sh
