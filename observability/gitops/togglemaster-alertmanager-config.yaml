@@ -18,7 +18,7 @@ spec:
       - service
       - severity
     groupWait: 10s
-    groupInterval: 5m
+    groupInterval: 15s
     repeatInterval: 4h
     matchers:
       - name: severity

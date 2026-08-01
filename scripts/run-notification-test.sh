@@ -8,8 +8,11 @@ NAMESPACE="${NAMESPACE:-monitoring}"
 ALERTMANAGER_SERVICE="${ALERTMANAGER_SERVICE:-monitoring-kube-prometheus-alertmanager}"
 LOCAL_PORT="${LOCAL_PORT:-19093}"
 
-ALERT_NAME="${ALERT_NAME:-ToggleMasterNotificationTest}"
+ALERT_NAME="${ALERT_NAME:-}"
 SERVICE_LABEL="${SERVICE_LABEL:-notification-test}"
+
+STATE_FILE="${STATE_FILE:-/tmp/togglemaster-notification-alert-name}"
+RESOLVE_WAIT_SECONDS="${RESOLVE_WAIT_SECONDS:-20}"
 
 PORT_FORWARD_PID=""
 PORT_FORWARD_LOG="/tmp/togglemaster-alertmanager-port-forward.log"
@@ -41,6 +44,36 @@ require_command kubectl
 require_command curl
 require_command jq
 require_command python3
+
+prepare_alert_identity() {
+  case "$ACTION" in
+    fire | demo)
+      if [[ -z "$ALERT_NAME" ]]; then
+        ALERT_NAME="ToggleMasterNotificationTest-$(date +%s)"
+      fi
+
+      printf '%s' "$ALERT_NAME" > "$STATE_FILE"
+
+      echo "Alerta desta execução: $ALERT_NAME"
+      ;;
+
+    resolve | status)
+      if [[ -z "$ALERT_NAME" && -s "$STATE_FILE" ]]; then
+        ALERT_NAME="$(cat "$STATE_FILE")"
+      fi
+
+      if [[ -z "$ALERT_NAME" ]]; then
+        echo "❌ Nenhum alerta anterior foi encontrado." >&2
+        echo "Execute primeiro: make notification-fire" >&2
+        exit 1
+      fi
+
+      echo "Alerta selecionado: $ALERT_NAME"
+      ;;
+  esac
+}
+
+prepare_alert_identity
 
 start_port_forward() {
   echo "Abrindo acesso temporário ao Alertmanager..."
@@ -243,8 +276,16 @@ resolve_alert() {
   send_alert resolved
 
   echo
-  echo "✅ Resolução enviada."
-  echo "Discord e PagerDuty devem receber o estado RESOLVED."
+  echo "✅ Resolução registrada no Alertmanager."
+  echo "Aguardando ${RESOLVE_WAIT_SECONDS}s para envio aos canais..."
+
+  sleep "$RESOLVE_WAIT_SECONDS"
+
+  rm -f "$STATE_FILE"
+
+  echo
+  echo "✅ Intervalo de notificação concluído."
+  echo "Confira o RESOLVED no Discord e no PagerDuty."
 }
 
 start_port_forward
