@@ -27,7 +27,7 @@ data:
     COOLDOWN_SECONDS = int(os.getenv("COOLDOWN_SECONDS", "300"))
     REQUEST_TIMEOUT_SECONDS = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "10"))
     MAX_BODY_BYTES = 1024 * 1024
-    RESTART_ANNOTATION = "kubectl.kubernetes.io/restartedAt"
+    RESTART_ANNOTATION = "togglemaster.io/self-healed-at"
 
     SERVICE_ACCOUNT_DIR = "/var/run/secrets/kubernetes.io/serviceaccount"
     TOKEN_FILE = f"{SERVICE_ACCOUNT_DIR}/token"
